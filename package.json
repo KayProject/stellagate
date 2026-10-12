@@ -1,5 +1,5 @@
 {
-  "name": "@stellagate/core",
+  "name": "stellagate-core",
   "version": "0.1.1",
   "description": "Check a Stellar destination before you send: memo requirements, trustlines, Stellar Asset Contract holdability and contract-account compatibility.",
   "main": "dist/index.js",
@@ -40,7 +40,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/StellaGate/stellagate.git"
+    "url": "git+https://github.com/StellaGate/stellagate.git"
   },
   "engines": {
     "node": ">=20"
