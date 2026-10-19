@@ -5,6 +5,7 @@ import { requiresMemo } from "../src/memo.js";
 import type { AccountSource, AccountState, DirectorySource, FederationResolver } from "../src/sources.js";
 import { horizonAccountSource } from "../src/sources.js";
 import type { CheckInput } from "../src/check.js";
+import type { FederationRecord } from "../src/sources.js";
 
 const MEMO_REQUIRED = { "config.memo_required": Buffer.from("1").toString("base64") };
 
@@ -271,5 +272,65 @@ describe("check with the public directory", () => {
     const v = await check({ to: friend, accounts: plainAccounts, directory: down });
     expect(v.status).toBe("ok");
     expect(v.reasons.map((r) => r.code)).toEqual(["directory_unavailable"]);
+  });
+});
+
+describe("federation memo metadata", () => {
+  const fixtures: Pick<FederationRecord, "memo" | "memoType">[] = [
+    { memo: "0", memoType: "id" },
+    { memo: "77", memoType: "id" },
+    { memo: "deposit reference", memoType: "text" },
+    { memo: "aB09".repeat(16), memoType: "hash" },
+  ];
+
+  describe.each([false, true])("account source unavailable: %s", (unavailable) => {
+    const source: AccountSource = unavailable
+      ? { loadAccount: async () => { throw new Error("offline account fixture"); } }
+      : accounts;
+
+    it.each(fixtures)("preserves the server memo and type: %j", async (metadata) => {
+      const federation: FederationResolver = { resolve: async () => ({ account: friend, ...metadata }) };
+      const v = await check({ to: "alice*example.com", federation, accounts: source, directory: null, contracts: null });
+      expect(v).toMatchObject({ account: friend, ...metadata, status: unavailable ? "warn" : "ok" });
+      expect(v.reasons.map((r) => r.code)).toEqual(unavailable ? ["account_unavailable"] : []);
+    });
+
+    it.each([
+      {},
+      { memo: "77" },
+      { memo: "0" },
+      { memoType: "id" },
+      { memo: "", memoType: "text" },
+      { memo: "" },
+    ] satisfies Pick<FederationRecord, "memo" | "memoType">[])("does not invent memo metadata: %j", async (metadata) => {
+      const federation: FederationResolver = { resolve: async () => ({ account: friend, ...metadata }) };
+      const v = await check({ to: "alice*example.com", federation, accounts: source, directory: null, contracts: null });
+      expect(v.status).toBe(unavailable ? "warn" : "ok");
+      expect(v.memo).toBe(metadata.memo || undefined);
+      expect(v.memoType).toBeUndefined();
+    });
+
+    it("keeps server metadata paired when the caller supplies a different memo", async () => {
+      const federation: FederationResolver = { resolve: async () => ({ account: exchange, memo: "77", memoType: "id" }) };
+      const v = await check({ to: "alice*example.com", memo: "my reference", memoType: "text", federation, accounts: source, directory: null, contracts: null });
+      expect(v).toMatchObject({ memo: "77", memoType: "id", status: unavailable ? "warn" : "ok" });
+      expect(v.reasons.map((r) => r.code)).toEqual(unavailable ? ["account_unavailable"] : []);
+    });
+
+    it.each(fixtures)("preserves sender blocks alongside server metadata: %j", async (metadata) => {
+      const federation: FederationResolver = { resolve: async () => ({ account: friend, ...metadata }) };
+      const v = await check({ to: "alice*example.com", from: contractSender, federation, accounts: source, directory: null, contracts: null });
+      expect(v).toMatchObject({ ...metadata, status: "block" });
+      expect(v.reasons.map((r) => r.code)).toEqual(unavailable
+        ? ["contract_sender_cannot_memo", "account_unavailable"]
+        : ["contract_sender_cannot_memo"]);
+    });
+  });
+
+  it("does not return caller memo type as federation metadata for a classic address", async () => {
+    const v = await check({ to: friend, memo: "77", memoType: "id", accounts, directory: null, contracts: null });
+    expect(v.status).toBe("ok");
+    expect(v.memo).toBeUndefined();
+    expect(v.memoType).toBeUndefined();
   });
 });

@@ -283,6 +283,9 @@ if (verdict.status === "block") {
           </div>
 
           <h3 id="verdict-interface">Verdict and Reason</h3>
+          <p>
+            The verdict's <code>memo</code> and <code>memoType</code> describe what the federation server supplied, even when the caller entered a different memo. An empty or absent server memo leaves both fields absent. If the server supplies a memo without its type, <code>memoType</code> stays absent. This metadata survives an <code>account_unavailable</code> warning.
+          </p>
           <div class="code-block-wrap">
             <pre class="code-pre"><code><span class="token-keyword">interface</span> Verdict {
   status: <span class="token-string">"ok"</span> | <span class="token-string">"warn"</span> | <span class="token-string">"block"</span>;
@@ -293,6 +296,8 @@ if (verdict.status === "block") {
   account?: string;
   <span class="token-comment">/** A memo the federation server supplied */</span>
   memo?: string;
+  <span class="token-comment">/** The server's memo type, when supplied with a nonempty memo */</span>
+  memoType?: "text" | "id" | "hash";
   <span class="token-comment">/** The directory entry, when the account has one */</span>
   entry?: DirectoryEntry;
 }

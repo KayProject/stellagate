@@ -151,7 +151,8 @@ function buildRows(v: Verdict, q: CheckInput): Row[] {
   else if (kind === "contract") memoRow = { question: "Does it need a memo?", status: "fine", answer: "No. Contracts do not take memos." };
   else if (kind === "muxed") memoRow = { question: "Does it need a memo?", status: "fine", answer: "No. The customer ID is built into this address." };
   else if (exists) memoRow = { question: "Does it need a memo?", status: "skipped", answer: "Not checked, because the account does not exist." };
-  else if (q.memo || v.memo) memoRow = { question: "Does it need a memo?", status: "fine", answer: `Your memo ${q.memo ?? v.memo} will go with the payment.` };
+  else if (q.memo) memoRow = { question: "Does it need a memo?", status: "fine", answer: `Your memo ${q.memo} will go with the payment.` };
+  else if (v.memo) memoRow = { question: "Does it need a memo?", status: "fine", answer: "The federation memo will go with the payment." };
   else memoRow = { question: "Does it need a memo?", status: "fine", answer: "No memo is required by the account or the public directory." };
   rows.push(memoRow);
 
@@ -203,6 +204,9 @@ function render(v: Verdict, q: CheckInput) {
     const dest = el("div", "destination");
     const target = v.destination.kind === "contract" ? v.destination.contract : v.destination.kind === "federation" ? v.account : v.destination.input;
     if (v.destination.kind === "federation") dest.append(el("p", "destination-note", `${v.destination.input} resolves to`));
+    if (v.destination.kind === "federation" && v.memo) {
+      dest.append(el("p", "destination-note", `Federation memo (${v.memoType ?? "type not supplied"}): ${v.memo}`));
+    }
     if (target) {
       const addr = el("p", "address");
       addr.innerHTML = chunk(target);
