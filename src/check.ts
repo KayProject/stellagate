@@ -57,6 +57,8 @@ export interface Verdict {
   account?: string;
   /** A memo the destination itself told us to use (federation). */
   memo?: string;
+  /** The type supplied for the federation memo. Absent if the server omitted it. */
+  memoType?: MemoType;
   /** Who the destination is, when a public directory knows. */
   entry?: DirectoryEntry;
   reasons: Reason[];
@@ -100,6 +102,7 @@ export async function check(input: CheckInput): Promise<Verdict> {
   let account: string | undefined;
   let memo = input.memo;
   let federationMemo: string | undefined;
+  let federationMemoType: MemoType | undefined;
 
   if (contractSender && input.memo) {
     reasons.push({
@@ -123,7 +126,8 @@ export async function check(input: CheckInput): Promise<Verdict> {
       try {
         const record = await (input.federation ?? sep2Federation).resolve(destination.input);
         account = record.account;
-        federationMemo = record.memo;
+        federationMemo = record.memo === "" ? undefined : record.memo;
+        federationMemoType = federationMemo === undefined ? undefined : record.memoType;
         if (federationMemo) memo = memo ?? federationMemo;
       } catch (err) {
         reasons.push({
@@ -221,7 +225,7 @@ export async function check(input: CheckInput): Promise<Verdict> {
       message: "The account could not be loaded, so its existence, memo requirement and ability to hold the asset could not be checked.",
       fix: "Try again before sending.",
     });
-    return { status: statusOf(reasons), destination, account, memo: federationMemo, entry, reasons };
+    return { status: statusOf(reasons), destination, account, memo: federationMemo, memoType: federationMemoType, entry, reasons };
   }
   const memoBySep29 = requiresMemo(state);
   const memoByDirectory = entry?.tags.includes("memo-required") ?? false;
@@ -262,5 +266,5 @@ export async function check(input: CheckInput): Promise<Verdict> {
   }
   if (state.exists && asset) reasons.push(...classicHoldability(state, account!, asset, amount ?? undefined));
 
-  return { status: statusOf(reasons), destination, account, memo: federationMemo, entry, reasons };
+  return { status: statusOf(reasons), destination, account, memo: federationMemo, memoType: federationMemoType, entry, reasons };
 }
